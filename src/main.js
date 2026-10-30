@@ -10,7 +10,7 @@ startBtn.addEventListener('click', async () => {
   infoPanel.innerText = 'Initializing camera and sensors...';
 
   try {
-    const app = new App();
+    const app = new App({});
     const locar = await app.start();
 
     // Add lighting
