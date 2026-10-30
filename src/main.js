@@ -41,15 +41,25 @@ const markerInfoDesc = document.getElementById('marker-info-desc');
 const markerInfoCoords = document.getElementById('marker-info-coords');
 const markerInfoClose = document.getElementById('marker-info-close');
 
-// State
+// Global State
 let currentLat = null;
 let currentLon = null;
 let currentAlt = 0;
 let locarInstance = null;
 let appInstance = null;
-const interactiveMarkers = []; // Stores meshes eligible for raycasting / tap
+const interactiveMarkers = []; // Stores meshes eligible for tap
+const allCustomMarkers = []; // { group, lat, lon, alt }
 
-markerInfoClose.addEventListener('click', () => {
+// 4 Cardinal markers that dynamic follow player
+let cardinalMarkers = {
+  N: null,
+  S: null,
+  E: null,
+  W: null
+};
+
+markerInfoClose.addEventListener('click', (e) => {
+  e.stopPropagation();
   markerInfoCard.style.display = 'none';
 });
 
@@ -60,19 +70,20 @@ function getCardinalDirection(heading) {
   return directions[index];
 }
 
-// Generate a 3D Marker with customizable title, description, and color
-function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorHex = 0x00e5ff }) {
+// Generate a 3D Marker
+function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorHex = 0x00e5ff, isCardinal = false }) {
   const group = new THREE.Group();
 
   // Vertical pole
-  const poleGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.5, 16);
+  const poleHeight = isCardinal ? 3.0 : 3.5;
+  const poleGeo = new THREE.CylinderGeometry(0.12, 0.12, poleHeight, 16);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
   const poleMesh = new THREE.Mesh(poleGeo, poleMat);
-  poleMesh.position.y = 1.75;
+  poleMesh.position.y = poleHeight / 2;
   group.add(poleMesh);
 
   // Top sphere pin
-  const sphereGeo = new THREE.SphereGeometry(0.85, 32, 32);
+  const sphereGeo = new THREE.SphereGeometry(isCardinal ? 0.75 : 0.85, 32, 32);
   const sphereMat = new THREE.MeshStandardMaterial({
     color: colorHex,
     emissive: colorHex,
@@ -80,16 +91,15 @@ function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorH
     roughness: 0.2
   });
   const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
-  sphereMesh.position.y = 3.8;
+  sphereMesh.position.y = poleHeight + 0.5;
   group.add(sphereMesh);
 
-  // Billboard sprite with title
+  // Billboard sprite with text
   const canvas = document.createElement('canvas');
   canvas.width = 384;
   canvas.height = 160;
   const ctx = canvas.getContext('2d');
 
-  // Background bubble
   ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
   ctx.beginPath();
   ctx.roundRect(10, 10, 364, 140, 24);
@@ -98,27 +108,27 @@ function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorH
   ctx.lineWidth = 6;
   ctx.stroke();
 
-  // Title text
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 36px sans-serif';
+  ctx.font = isCardinal ? 'bold 50px sans-serif' : 'bold 36px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const displayTitle = title.length > 18 ? title.slice(0, 16) + '...' : title;
-  ctx.fillText(displayTitle, 192, 60);
+  ctx.fillText(displayTitle, 192, isCardinal ? 80 : 60);
 
-  // Subtext hint
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '22px sans-serif';
-  ctx.fillText('Tap for info', 192, 108);
+  if (!isCardinal) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Tap for info', 192, 108);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
   const sprite = new THREE.Sprite(spriteMat);
   sprite.scale.set(3.2, 1.33, 1);
-  sprite.position.y = 5.4;
+  sprite.position.y = poleHeight + 1.8;
   group.add(sprite);
 
-  // Attach metadata to group and all child meshes
+  // Attach metadata
   const markerData = {
     title,
     description: description || 'No extra description provided.',
@@ -136,7 +146,7 @@ function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorH
   return group;
 }
 
-// Display the Info Card for a tapped marker
+// Display Info Card
 function showMarkerDetails(data) {
   markerInfoTitle.innerText = data.title;
   markerInfoDesc.innerText = data.description;
@@ -154,23 +164,31 @@ function openMarkerModal(prefillLat = null, prefillLon = null, prefillAlt = 0) {
   modalOverlay.style.display = 'flex';
 }
 
-addMarkerBtn.addEventListener('click', () => {
+// Button Listeners (supporting click and touchstart for instant response)
+function bindTapOrClick(el, handler) {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handler(e);
+  });
+}
+
+bindTapOrClick(addMarkerBtn, () => {
   if (currentLat === null || currentLon === null) {
-    alert('Waiting for GPS lock before placing at current location...');
+    alert('Still waiting for initial GPS position...');
     return;
   }
   openMarkerModal(currentLat, currentLon, currentAlt);
 });
 
-customCoordsBtn.addEventListener('click', () => {
+bindTapOrClick(customCoordsBtn, () => {
   openMarkerModal();
 });
 
-modalCancelBtn.addEventListener('click', () => {
+bindTapOrClick(modalCancelBtn, () => {
   modalOverlay.style.display = 'none';
 });
 
-modalSubmitBtn.addEventListener('click', () => {
+bindTapOrClick(modalSubmitBtn, () => {
   const title = inputTitle.value.trim() || 'Custom Landmark';
   const desc = inputDesc.value.trim();
   const lat = parseFloat(inputLat.value);
@@ -179,7 +197,7 @@ modalSubmitBtn.addEventListener('click', () => {
   const color = inputColor.value;
 
   if (isNaN(lat) || isNaN(lon)) {
-    alert('Please enter valid numerical latitude and longitude coordinates.');
+    alert('Please enter valid numerical latitude and longitude.');
     return;
   }
 
@@ -188,7 +206,6 @@ modalSubmitBtn.addEventListener('click', () => {
     return;
   }
 
-  // Create marker and add to LocAR geospatial scene
   const markerObj = createInteractiveMarker({
     title,
     description: desc,
@@ -199,9 +216,55 @@ modalSubmitBtn.addEventListener('click', () => {
   });
 
   locarInstance.add(markerObj, lon, lat, alt);
+  allCustomMarkers.push({ group: markerObj, lat, lon, alt });
+
   modalOverlay.style.display = 'none';
   statusText.innerText = `Placed "${title}" at ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 });
+
+// Update cardinal markers so they constantly follow the player (~20 meters away)
+function updateCardinalPositions(playerLat, playerLon) {
+  if (!locarInstance || playerLat === null || playerLon === null) return;
+
+  const latOffset = 0.00018; // ~20m North / South
+  const lonOffset = 0.00018 / Math.cos((playerLat * Math.PI) / 180); // ~20m East / West
+
+  const cardinals = [
+    { key: 'N', title: 'NORTH', desc: 'True North (~20m ahead)', lat: playerLat + latOffset, lon: playerLon, color: 0xff4757 },
+    { key: 'S', title: 'SOUTH', desc: 'True South (~20m behind)', lat: playerLat - latOffset, lon: playerLon, color: 0x3742fa },
+    { key: 'E', title: 'EAST', desc: 'True East (~20m right)', lat: playerLat, lon: playerLon + lonOffset, color: 0xffa502 },
+    { key: 'W', title: 'WEST', desc: 'True West (~20m left)', lat: playerLat, lon: playerLon - lonOffset, color: 0x2ed573 }
+  ];
+
+  for (const c of cardinals) {
+    if (!cardinalMarkers[c.key]) {
+      // First time create
+      const marker = createInteractiveMarker({
+        title: c.title,
+        description: c.desc,
+        lat: c.lat,
+        lon: c.lon,
+        alt: 0,
+        colorHex: c.color,
+        isCardinal: true
+      });
+      locarInstance.add(marker, c.lon, c.lat, 0);
+      cardinalMarkers[c.key] = marker;
+    } else {
+      // Reposition in world coords relative to current GPS origin
+      try {
+        const [x, z] = locarInstance.lonLatToWorldCoords(c.lon, c.lat);
+        const marker = cardinalMarkers[c.key];
+        marker.position.x = x;
+        marker.position.z = z;
+        marker.userData.lat = c.lat;
+        marker.userData.lon = c.lon;
+      } catch (e) {
+        // origin not set yet
+      }
+    }
+  }
+}
 
 startBtn.addEventListener('click', async () => {
   overlay.style.display = 'none';
@@ -219,7 +282,7 @@ startBtn.addEventListener('click', async () => {
     }
   }
 
-  // Set up Device Motion (Accelerometer) listener
+  // Device Motion (Accelerometer)
   window.addEventListener('devicemotion', (event) => {
     const acc = event.accelerationIncludingGravity || event.acceleration;
     if (acc) {
@@ -229,7 +292,7 @@ startBtn.addEventListener('click', async () => {
     }
   });
 
-  // Set up Device Orientation (Compass Heading / Angles) listener
+  // Device Orientation (Compass Heading / Angles)
   window.addEventListener('deviceorientation', (event) => {
     let heading = null;
 
@@ -261,6 +324,11 @@ startBtn.addEventListener('click', async () => {
     const locar = await app.start();
     locarInstance = locar;
 
+    // Ensure three.js canvas doesn't block touch/clicks on HUD action buttons
+    if (app.renderer && app.renderer.domElement) {
+      app.renderer.domElement.style.zIndex = '1';
+    }
+
     // Scene lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     app.scene.add(ambientLight);
@@ -289,16 +357,14 @@ startBtn.addEventListener('click', async () => {
     };
 
     window.addEventListener('click', (e) => {
-      // Don't intercept if clicking HUD UI elements
+      // Don't intercept if clicking buttons or modals
       if (e.target.closest('#hud-top') || e.target.closest('#action-bar') || e.target.closest('#modal-overlay') || e.target.closest('#marker-info-card')) {
         return;
       }
       handleTap(e.clientX, e.clientY);
     });
 
-    let cardinalPlaced = false;
-
-    // Helper to update GPS UI and spawn initial cardinal coordinates
+    // Handle GPS coordinate update
     const handleGpsUpdate = (coords) => {
       if (!coords) return;
       currentLat = coords.latitude;
@@ -314,58 +380,8 @@ startBtn.addEventListener('click', async () => {
 
       statusText.innerText = `GPS Active (±${Math.round(acc || 0)}m)`;
 
-      // Place 4 3D Cardinal Coordinate markers once we get initial location
-      if (!cardinalPlaced && currentLat != null && currentLon != null) {
-        const latOffset = 0.00018; // ~20 meters
-        const lonOffset = 0.00018 / Math.cos((currentLat * Math.PI) / 180);
-
-        // North
-        const markerN = createInteractiveMarker({
-          title: 'NORTH',
-          description: 'True North direction (~20m distance)',
-          lat: currentLat + latOffset,
-          lon: currentLon,
-          alt: 0,
-          colorHex: 0xff4757
-        });
-        locar.add(markerN, currentLon, currentLat + latOffset, 0);
-
-        // South
-        const markerS = createInteractiveMarker({
-          title: 'SOUTH',
-          description: 'True South direction (~20m distance)',
-          lat: currentLat - latOffset,
-          lon: currentLon,
-          alt: 0,
-          colorHex: 0x3742fa
-        });
-        locar.add(markerS, currentLon, currentLat - latOffset, 0);
-
-        // East
-        const markerE = createInteractiveMarker({
-          title: 'EAST',
-          description: 'True East direction (~20m distance)',
-          lat: currentLat,
-          lon: currentLon + lonOffset,
-          alt: 0,
-          colorHex: 0xffa502
-        });
-        locar.add(markerE, currentLon + lonOffset, currentLat, 0);
-
-        // West
-        const markerW = createInteractiveMarker({
-          title: 'WEST',
-          description: 'True West direction (~20m distance)',
-          lat: currentLat,
-          lon: currentLon - lonOffset,
-          alt: 0,
-          colorHex: 0x2ed573
-        });
-        locar.add(markerW, currentLon - lonOffset, currentLat, 0);
-
-        cardinalPlaced = true;
-        statusText.innerText = 'Cardinal markers placed ~20m around you! Tap any marker to view info.';
-      }
+      // Dynamic repositioning: update cardinal markers to stay ~20m around player
+      updateCardinalPositions(currentLat, currentLon);
     };
 
     // 1. Browser Geolocation watcher
