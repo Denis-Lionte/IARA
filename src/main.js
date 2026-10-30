@@ -8,6 +8,7 @@ const statusText = document.getElementById('status-text');
 // Telemetry DOM elements
 const elLat = document.getElementById('val-lat');
 const elLon = document.getElementById('val-lon');
+const elAlt = document.getElementById('val-alt');
 const elAcc = document.getElementById('val-acc');
 const elAx = document.getElementById('val-ax');
 const elAy = document.getElementById('val-ay');
@@ -30,22 +31,22 @@ function createCardinalMarker(text, colorHex) {
   const group = new THREE.Group();
 
   // Vertical pole
-  const poleGeo = new THREE.CylinderGeometry(0.08, 0.08, 3, 16);
+  const poleGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.5, 16);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
   const poleMesh = new THREE.Mesh(poleGeo, poleMat);
-  poleMesh.position.y = 1.5;
+  poleMesh.position.y = 1.75;
   group.add(poleMesh);
 
   // Colored sphere on top
-  const sphereGeo = new THREE.SphereGeometry(0.7, 32, 32);
+  const sphereGeo = new THREE.SphereGeometry(0.8, 32, 32);
   const sphereMat = new THREE.MeshStandardMaterial({
     color: colorHex,
     emissive: colorHex,
-    emissiveIntensity: 0.35,
+    emissiveIntensity: 0.45,
     roughness: 0.2
   });
   const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
-  sphereMesh.position.y = 3.2;
+  sphereMesh.position.y = 3.6;
   group.add(sphereMesh);
 
   // Canvas billboard with cardinal letter
@@ -62,16 +63,16 @@ function createCardinalMarker(text, colorHex) {
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 120px sans-serif';
+  ctx.font = 'bold 90px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 130);
+  ctx.fillText(text, 128, 128);
 
   const texture = new THREE.CanvasTexture(canvas);
   const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(2, 2, 1);
-  sprite.position.y = 4.6;
+  sprite.scale.set(2.4, 2.4, 1);
+  sprite.position.y = 5.2;
   group.add(sprite);
 
   return group;
@@ -107,18 +108,15 @@ startBtn.addEventListener('click', async () => {
   window.addEventListener('deviceorientation', (event) => {
     let heading = null;
 
-    // Webkit (iOS Safari) provides compass heading directly
     if (typeof event.webkitCompassHeading !== 'undefined') {
       heading = event.webkitCompassHeading;
     } else if (event.alpha !== null) {
-      // Android / standards fallback
       heading = (360 - event.alpha) % 360;
     }
 
     if (heading !== null) {
       const cardinal = getCardinalDirection(heading);
       headingValue.innerText = `${Math.round(heading)}° ${cardinal}`;
-      // Rotate compass dial
       compassDial.style.transform = `rotate(${-heading}deg)`;
     }
 
@@ -128,7 +126,13 @@ startBtn.addEventListener('click', async () => {
   });
 
   try {
-    const app = new App({});
+    // Pass generous GPS accuracy threshold so indoor/initial readings aren't rejected
+    const app = new App({
+      gpsOptions: {
+        gpsMinAccuracy: 1000,
+        gpsMinDistance: 0
+      }
+    });
     const locar = await app.start();
 
     // Scene lighting
@@ -141,20 +145,24 @@ startBtn.addEventListener('click', async () => {
 
     let markersPlaced = false;
 
-    // GPS updates
-    locar.on('gpsupdate', (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      const acc = pos.coords.accuracy;
+    // Helper to update GPS UI and spawn markers
+    const handleGpsUpdate = (coords) => {
+      if (!coords) return;
+      const lat = coords.latitude;
+      const lon = coords.longitude;
+      const alt = coords.altitude;
+      const acc = coords.accuracy;
 
-      elLat.innerText = lat.toFixed(5);
-      elLon.innerText = lon.toFixed(5);
-      elAcc.innerText = `±${Math.round(acc)}m`;
+      if (lat != null) elLat.innerText = lat.toFixed(5);
+      if (lon != null) elLon.innerText = lon.toFixed(5);
+      if (alt != null) elAlt.innerText = `${Math.round(alt)}m`;
+      else elAlt.innerText = 'N/A';
+      if (acc != null) elAcc.innerText = `±${Math.round(acc)}m`;
 
-      statusText.innerText = `GPS Active (±${Math.round(acc)}m)`;
+      statusText.innerText = `GPS Active (±${Math.round(acc || 0)}m)`;
 
       // Place 4 3D Cardinal Coordinate markers once we get initial location
-      if (!markersPlaced) {
+      if (!markersPlaced && lat != null && lon != null) {
         // ~20 meters offset distance in latitude/longitude
         const latOffset = 0.00018; // ~20 meters
         const lonOffset = 0.00018 / Math.cos((lat * Math.PI) / 180);
@@ -178,10 +186,29 @@ startBtn.addEventListener('click', async () => {
         markersPlaced = true;
         statusText.innerText = 'Cardinal markers placed ~20m around you!';
       }
+    };
+
+    // 1. Direct browser Geolocation watcher (guaranteed immediate updates)
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (pos) => handleGpsUpdate(pos.coords),
+        (err) => {
+          console.warn('Direct geolocation error:', err);
+          statusText.innerText = `GPS Warning: ${err.message}`;
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      );
+    }
+
+    // 2. LocAR event listener (handles both pos and { position } shape)
+    locar.on('gpsupdate', (data) => {
+      const coords = data?.position?.coords || data?.coords;
+      handleGpsUpdate(coords);
     });
 
     locar.on('gpserror', (err) => {
-      statusText.innerText = `GPS Error: ${err.message}`;
+      console.warn('LocAR GPS Error:', err);
+      statusText.innerText = `LocAR GPS: ${err.message || err}`;
     });
 
     await locar.startGps();
