@@ -86,11 +86,11 @@
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 16px;
       padding: 8px 12px;
-      min-width: 120px;
+      min-width: 110px;
     }
     #compass-dial {
-      width: 76px;
-      height: 76px;
+      width: 70px;
+      height: 70px;
       position: relative;
       border-radius: 50%;
       border: 2px solid rgba(255, 255, 255, 0.25);
@@ -105,19 +105,19 @@
       font-weight: bold;
       font-size: 12px;
     }
-    .cardinal-n { top: 3px; color: #ff4757; }
-    .cardinal-s { bottom: 3px; color: #70a1ff; }
-    .cardinal-e { right: 5px; color: #eccc68; }
-    .cardinal-w { left: 5px; color: #2ed573; }
+    .cardinal-n { top: 2px; color: #ff4757; }
+    .cardinal-s { bottom: 2px; color: #70a1ff; }
+    .cardinal-e { right: 4px; color: #eccc68; }
+    .cardinal-w { left: 4px; color: #2ed573; }
     #compass-needle {
       position: absolute;
       width: 4px;
-      height: 48px;
+      height: 44px;
       background: linear-gradient(to bottom, #ff4757 50%, #dfe4ea 50%);
       border-radius: 2px;
     }
     #heading-value {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       color: #00e5ff;
     }
@@ -125,14 +125,14 @@
     /* Telemetry Panel */
     #telemetry-panel {
       flex: 1;
-      max-width: 250px;
+      max-width: 240px;
       background: rgba(15, 23, 42, 0.75);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 16px;
-      padding: 10px 12px;
+      padding: 8px 12px;
       font-size: 11px;
-      line-height: 1.45;
+      line-height: 1.4;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     .panel-section-title {
@@ -140,7 +140,7 @@
       color: #00e5ff;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 2px;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     .data-row {
       display: flex;
@@ -154,13 +154,46 @@
       font-weight: 600;
     }
 
+    /* Action Buttons (Bottom-Right) */
+    #action-bar {
+      position: absolute;
+      bottom: 58px;
+      right: 14px;
+      z-index: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .fab-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .fab-btn:active {
+      transform: scale(0.96);
+      background: rgba(0, 229, 255, 0.3);
+    }
+    .fab-icon {
+      font-size: 16px;
+    }
+
     /* Status Bar at the Bottom */
     #status-bar {
       position: absolute;
       bottom: 12px;
       left: 12px;
       right: 12px;
-      background: rgba(15, 23, 42, 0.75);
+      background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 10px;
@@ -175,12 +208,148 @@
       color: #38ef7d;
       font-weight: 600;
     }
+
+    /* Modal dialog for creating a marker */
+    #modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1200;
+      padding: 20px;
+    }
+    .modal-box {
+      width: 100%;
+      max-width: 360px;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #00e5ff;
+      margin-bottom: 14px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .form-input {
+      width: 100%;
+      padding: 9px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #00e5ff;
+    }
+    .form-row {
+      display: flex;
+      gap: 8px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .btn-secondary {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      color: #cbd5e1;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Popup card when clicking a 3D Marker */
+    #marker-info-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      max-width: 320px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border: 2px solid #00e5ff;
+      border-radius: 18px;
+      padding: 20px;
+      z-index: 1100;
+      display: none;
+      box-shadow: 0 10px 40px rgba(0, 229, 255, 0.25);
+      animation: popIn 0.2s ease-out;
+    }
+    @keyframes popIn {
+      from { transform: translate(-50%, -45%) scale(0.9); opacity: 0; }
+      to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    #marker-info-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #00e5ff;
+      margin-bottom: 8px;
+    }
+    #marker-info-desc {
+      font-size: 0.95rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+      margin-bottom: 14px;
+      white-space: pre-wrap;
+    }
+    #marker-info-coords {
+      font-size: 11px;
+      font-family: monospace;
+      color: #94a3b8;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 8px;
+      margin-bottom: 14px;
+    }
+    #marker-info-close {
+      width: 100%;
+      padding: 10px;
+      background: #00e5ff;
+      color: #0b1120;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div id="overlay">
-    <h2>WebAR Sensor HUD</h2>
-    <p>Grant camera, motion sensors, and geolocation to activate the 3D cardinal markers & telemetry.</p>
+    <h2>WebAR Geospatial HUD</h2>
+    <p>Grant camera, motion sensors, and geolocation to view and place 3D AR coordinate markers.</p>
     <button id="start-btn">Start AR Experience</button>
   </div>
 
@@ -206,20 +375,83 @@
       <div class="data-row"><span class="data-label">ALT:</span><span id="val-alt" class="data-val">--</span></div>
       <div class="data-row"><span class="data-label">ACC:</span><span id="val-acc" class="data-val">--</span></div>
 
-      <div class="panel-section-title" style="margin-top: 6px;">ACCELEROMETER (m/s²)</div>
+      <div class="panel-section-title" style="margin-top: 5px;">ACCELEROMETER (m/s²)</div>
       <div class="data-row"><span class="data-label">X:</span><span id="val-ax" class="data-val">--</span></div>
       <div class="data-row"><span class="data-label">Y:</span><span id="val-ay" class="data-val">--</span></div>
       <div class="data-row"><span class="data-label">Z:</span><span id="val-az" class="data-val">--</span></div>
 
-      <div class="panel-section-title" style="margin-top: 6px;">ORIENTATION (°)</div>
+      <div class="panel-section-title" style="margin-top: 5px;">ORIENTATION (°)</div>
       <div class="data-row"><span class="data-label">ALPHA:</span><span id="val-alpha" class="data-val">--</span></div>
       <div class="data-row"><span class="data-label">BETA:</span><span id="val-beta" class="data-val">--</span></div>
       <div class="data-row"><span class="data-label">GAMMA:</span><span id="val-gamma" class="data-val">--</span></div>
     </div>
   </div>
 
+  <!-- Bottom Floating Action Buttons -->
+  <div id="action-bar">
+    <button id="add-marker-btn" class="fab-btn">
+      <span class="fab-icon">📍</span> Drop Marker Here
+    </button>
+    <button id="custom-coords-btn" class="fab-btn">
+      <span class="fab-icon">✍️</span> Enter Coordinates
+    </button>
+  </div>
+
+  <!-- Status Bar at the Bottom -->
   <div id="status-bar">
     Status: <span id="status-text">Waiting to start...</span>
+  </div>
+
+  <!-- Modal Dialog: Create Marker with Custom Coordinates / Altitude / Info -->
+  <div id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title">Create 3D AR Marker</div>
+
+      <div class="form-group">
+        <label>Marker Title</label>
+        <input type="text" id="input-title" class="form-input" placeholder="e.g. Secret Treasure / Meeting Point" />
+      </div>
+
+      <div class="form-group">
+        <label>Description / Info</label>
+        <textarea id="input-desc" class="form-input" rows="2" placeholder="Information to show when tapped..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>Latitude</label>
+          <input type="number" step="any" id="input-lat" class="form-input" placeholder="e.g. 47.65123" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label>Longitude</label>
+          <input type="number" step="any" id="input-lon" class="form-input" placeholder="e.g. 26.25123" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>Altitude (m)</label>
+          <input type="number" step="any" id="input-alt" class="form-input" placeholder="0 (relative to ground)" value="0" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label>Pin Color</label>
+          <input type="color" id="input-color" class="form-input" style="height: 38px; padding: 2px;" value="#00e5ff" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="modal-cancel-btn" class="btn-secondary">Cancel</button>
+        <button id="modal-submit-btn" class="btn-primary">Place Marker</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tapped Marker Info Card -->
+  <div id="marker-info-card">
+    <div id="marker-info-title">Marker Title</div>
+    <div id="marker-info-desc">Detailed info about this place...</div>
+    <div id="marker-info-coords">Lat: 0.00000 | Lon: 0.00000 | Alt: 0m</div>
+    <button id="marker-info-close">Close</button>
   </div>
 
   <script type="module" src="./src/main.js"></script>
