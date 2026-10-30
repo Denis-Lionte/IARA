@@ -44,11 +44,11 @@ const markerInfoClose = document.getElementById('marker-info-close');
 // Global State
 let currentLat = null;
 let currentLon = null;
-let currentAlt = 0;
+let currentAlt = null; // Stores actual real-world GPS altitude (e.g. ~400m)
 let locarInstance = null;
 let appInstance = null;
 const interactiveMarkers = []; // Stores meshes eligible for tap
-const allCustomMarkers = []; // { group, lat, lon, alt }
+const allCustomMarkers = []; // { group, lat, lon, targetAlt }
 
 // 4 Cardinal markers that dynamic follow player
 let cardinalMarkers = {
@@ -150,21 +150,24 @@ function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorH
 function showMarkerDetails(data) {
   markerInfoTitle.innerText = data.title;
   markerInfoDesc.innerText = data.description;
-  markerInfoCoords.innerText = `Lat: ${data.lat.toFixed(5)} | Lon: ${data.lon.toFixed(5)} | Alt: ${data.alt}m`;
+  markerInfoCoords.innerText = `Lat: ${data.lat.toFixed(5)} | Lon: ${data.lon.toFixed(5)} | Alt: ${Math.round(data.alt)}m`;
   markerInfoCard.style.display = 'block';
 }
 
 // Open modal for adding a marker
-function openMarkerModal(prefillLat = null, prefillLon = null, prefillAlt = 0) {
+function openMarkerModal(prefillLat = null, prefillLon = null, prefillAlt = null) {
   inputTitle.value = '';
   inputDesc.value = '';
   inputLat.value = prefillLat !== null ? prefillLat.toFixed(5) : (currentLat !== null ? currentLat.toFixed(5) : '');
   inputLon.value = prefillLon !== null ? prefillLon.toFixed(5) : (currentLon !== null ? currentLon.toFixed(5) : '');
-  inputAlt.value = prefillAlt || 0;
+  
+  // Prefill with actual measured GPS altitude if available, otherwise round to 0
+  const defaultAlt = prefillAlt !== null ? Math.round(prefillAlt) : (currentAlt !== null ? Math.round(currentAlt) : 0);
+  inputAlt.value = defaultAlt;
   modalOverlay.style.display = 'flex';
 }
 
-// Button Listeners (supporting click and touchstart for instant response)
+// Button Listeners
 function bindTapOrClick(el, handler) {
   el.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -193,7 +196,7 @@ bindTapOrClick(modalSubmitBtn, () => {
   const desc = inputDesc.value.trim();
   const lat = parseFloat(inputLat.value);
   const lon = parseFloat(inputLon.value);
-  const alt = parseFloat(inputAlt.value) || 0;
+  const targetAlt = parseFloat(inputAlt.value) || 0;
   const color = inputColor.value;
 
   if (isNaN(lat) || isNaN(lon)) {
@@ -206,21 +209,35 @@ bindTapOrClick(modalSubmitBtn, () => {
     return;
   }
 
+  // Calculate relative 3D height in camera scene:
+  // If player is at 390m and marker is placed at 400m, relative height is +10m in the air!
+  const playerAlt = currentAlt !== null ? currentAlt : 0;
+  const relativeY = targetAlt - playerAlt;
+
   const markerObj = createInteractiveMarker({
     title,
     description: desc,
     lat,
     lon,
-    alt,
+    alt: targetAlt,
     colorHex: color
   });
 
-  locarInstance.add(markerObj, lon, lat, alt);
-  allCustomMarkers.push({ group: markerObj, lat, lon, alt });
+  // Add to locar at calculated relative elevation
+  locarInstance.add(markerObj, lon, lat, relativeY);
+  allCustomMarkers.push({ group: markerObj, lat, lon, targetAlt });
 
   modalOverlay.style.display = 'none';
-  statusText.innerText = `Placed "${title}" at ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  statusText.innerText = `Placed "${title}" at ${lat.toFixed(4)}, ${lon.toFixed(4)} (Alt ${Math.round(targetAlt)}m)`;
 });
+
+// Update custom markers' relative Y position if player altitude changes
+function updateCustomMarkersElevation(playerAlt) {
+  if (playerAlt === null) return;
+  for (const item of allCustomMarkers) {
+    item.group.position.y = item.targetAlt - playerAlt;
+  }
+}
 
 // Update cardinal markers so they constantly follow the player (~20 meters away)
 function updateCardinalPositions(playerLat, playerLon) {
@@ -238,29 +255,29 @@ function updateCardinalPositions(playerLat, playerLon) {
 
   for (const c of cardinals) {
     if (!cardinalMarkers[c.key]) {
-      // First time create
       const marker = createInteractiveMarker({
         title: c.title,
         description: c.desc,
         lat: c.lat,
         lon: c.lon,
-        alt: 0,
+        alt: currentAlt !== null ? currentAlt : 0,
         colorHex: c.color,
         isCardinal: true
       });
       locarInstance.add(marker, c.lon, c.lat, 0);
       cardinalMarkers[c.key] = marker;
     } else {
-      // Reposition in world coords relative to current GPS origin
       try {
         const [x, z] = locarInstance.lonLatToWorldCoords(c.lon, c.lat);
         const marker = cardinalMarkers[c.key];
         marker.position.x = x;
         marker.position.z = z;
+        marker.position.y = 0; // eye/ground level
         marker.userData.lat = c.lat;
         marker.userData.lon = c.lon;
+        marker.userData.alt = currentAlt !== null ? currentAlt : 0;
       } catch (e) {
-        // origin not set yet
+        // origin not determined yet
       }
     }
   }
@@ -369,19 +386,26 @@ startBtn.addEventListener('click', async () => {
       if (!coords) return;
       currentLat = coords.latitude;
       currentLon = coords.longitude;
-      currentAlt = coords.altitude || 0;
+      
+      // Store actual measured altitude if provided by device GPS
+      if (coords.altitude !== null && !isNaN(coords.altitude)) {
+        currentAlt = coords.altitude;
+        elAlt.innerText = `${Math.round(currentAlt)}m`;
+      }
+
       const acc = coords.accuracy;
 
       if (currentLat != null) elLat.innerText = currentLat.toFixed(5);
       if (currentLon != null) elLon.innerText = currentLon.toFixed(5);
-      if (coords.altitude != null) elAlt.innerText = `${Math.round(coords.altitude)}m`;
-      else elAlt.innerText = 'N/A';
       if (acc != null) elAcc.innerText = `±${Math.round(acc)}m`;
 
       statusText.innerText = `GPS Active (±${Math.round(acc || 0)}m)`;
 
-      // Dynamic repositioning: update cardinal markers to stay ~20m around player
+      // Dynamic repositioning of cardinal coordinates
       updateCardinalPositions(currentLat, currentLon);
+
+      // Adjust custom markers if altitude shifted
+      updateCustomMarkersElevation(currentAlt);
     };
 
     // 1. Browser Geolocation watcher
