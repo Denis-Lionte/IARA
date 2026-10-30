@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>LocAR.js Proof of Concept</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 1000;
+      color: white;
+    }
+    #start-btn {
+      padding: 12px 24px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background: #00bcd4;
+      color: white;
+      cursor: pointer;
+    }
+    #info-panel {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      z-index: 500;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <h2>LocAR.js WebAR Demo</h2>
+    <p>Tap below to initialize camera and motion sensors.</p>
+    <button id="start-btn">Start AR Experience</button>
+  </div>
+
+  <div id="info-panel">GPS: Waiting for fix...</div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
