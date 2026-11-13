@@ -40,15 +40,17 @@ const markerInfoTitle = document.getElementById('marker-info-title');
 const markerInfoDesc = document.getElementById('marker-info-desc');
 const markerInfoCoords = document.getElementById('marker-info-coords');
 const markerInfoClose = document.getElementById('marker-info-close');
+const markerList = document.getElementById('marker-list');
 
 // Global State
 let currentLat = null;
 let currentLon = null;
-let currentAlt = null; // Stores actual real-world GPS altitude (e.g. ~400m)
+let currentAlt = null;
 let locarInstance = null;
 let appInstance = null;
 const interactiveMarkers = []; // Stores meshes eligible for tap
-const allCustomMarkers = []; // { group, lat, lon, targetAlt }
+const allCustomMarkers = []; // { id, group, lat, lon, alt, title, description, colorHex }
+const markerStorageKey = 'iara-custom-markers-v1';
 
 // 4 Cardinal markers that dynamic follow player
 let cardinalMarkers = {
@@ -62,6 +64,139 @@ markerInfoClose.addEventListener('click', (e) => {
   e.stopPropagation();
   markerInfoCard.style.display = 'none';
 });
+
+function formatCoordinate(value, digits = 6) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+  return Number(value).toFixed(digits);
+}
+
+function formatAltitude(value) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return 'N/A';
+  return `${Number(value).toFixed(1)}m`;
+}
+
+function formatDistance(meters) {
+  if (!Number.isFinite(meters)) return '—';
+  if (meters < 1000) return `${meters.toFixed(0)} m`;
+  return `${(meters / 1000).toFixed(2)} km`;
+}
+
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  if (lat1 === null || lon1 === null || lat2 === null || lon2 === null) return null;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+}
+
+function getBearingDegrees(lat1, lon1, lat2, lon2) {
+  if (lat1 === null || lon1 === null || lat2 === null || lon2 === null) return null;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+  const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+  let bearing = Math.atan2(y, x);
+  bearing = toDeg(bearing);
+  return (bearing + 360) % 360;
+}
+
+function getCompassLabel(angle) {
+  if (angle === null || !Number.isFinite(angle)) return '—';
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const idx = Math.round(angle / 45) % 8;
+  return directions[idx];
+}
+
+function persistCustomMarkers() {
+  const snapshot = allCustomMarkers.map(({ title, description, lat, lon, alt, colorHex }) => ({
+    title,
+    description,
+    lat,
+    lon,
+    alt,
+    colorHex
+  }));
+  localStorage.setItem(markerStorageKey, JSON.stringify(snapshot));
+}
+
+function removeMarkerFromList(markerId) {
+  const markerIndex = allCustomMarkers.findIndex((marker) => marker.id === markerId);
+  if (markerIndex === -1) return;
+
+  const [markerToRemove] = allCustomMarkers.splice(markerIndex, 1);
+  if (markerToRemove?.group) {
+    if (markerToRemove.group.children) {
+      markerToRemove.group.children.forEach((child) => {
+        const idx = interactiveMarkers.indexOf(child);
+        if (idx !== -1) interactiveMarkers.splice(idx, 1);
+      });
+    }
+    if (locarInstance) {
+      try {
+        locarInstance.remove(markerToRemove.group);
+      } catch (err) {
+        console.warn('Marker removal failed:', err);
+      }
+    }
+  }
+
+  persistCustomMarkers();
+  updateMarkerList();
+}
+
+function updateMarkerList() {
+  if (!markerList) return;
+
+  if (!allCustomMarkers.length) {
+    markerList.innerHTML = '<div class="marker-list-sub">No saved markers yet.</div>';
+    return;
+  }
+
+  markerList.innerHTML = allCustomMarkers.map((marker) => {
+    const distance = currentLat !== null && currentLon !== null
+      ? getDistanceMeters(currentLat, currentLon, marker.lat, marker.lon)
+      : null;
+    const distanceText = distance !== null ? formatDistance(distance) : 'Awaiting GPS';
+    return `
+      <div class="marker-list-item" data-id="${marker.id}">
+        <div class="marker-list-meta">
+          <div class="marker-list-name">${marker.title}</div>
+          <div class="marker-list-sub">${distanceText} • ${formatCoordinate(marker.lat, 5)}, ${formatCoordinate(marker.lon, 5)}</div>
+        </div>
+        <button class="marker-list-delete" data-delete-id="${marker.id}" type="button">Delete</button>
+      </div>
+    `;
+  }).join('');
+
+  markerList.querySelectorAll('.marker-list-item').forEach((item) => {
+    item.addEventListener('click', (event) => {
+      if (event.target.closest('.marker-list-delete')) return;
+      const marker = allCustomMarkers.find((entry) => entry.id === item.dataset.id);
+      if (marker) showMarkerDetails(marker.group.userData);
+    });
+  });
+
+  markerList.querySelectorAll('.marker-list-delete').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeMarkerFromList(button.dataset.deleteId);
+    });
+  });
+}
+
+function getMarkerRelativeAltitude(altitude) {
+  if (currentAlt === null || currentAlt === undefined || !Number.isFinite(currentAlt)) {
+    return altitude || 0;
+  }
+  return (Number(altitude) || 0) - currentAlt;
+}
 
 // Convert heading degrees to Cardinal abbreviation
 function getCardinalDirection(heading) {
@@ -148,26 +283,102 @@ function createInteractiveMarker({ title, description, lat, lon, alt = 0, colorH
 
 // Display Info Card
 function showMarkerDetails(data) {
+  if (!data) return;
+
+  const distance = currentLat !== null && currentLon !== null
+    ? getDistanceMeters(currentLat, currentLon, data.lat, data.lon)
+    : null;
+  const bearing = currentLat !== null && currentLon !== null
+    ? getBearingDegrees(currentLat, currentLon, data.lat, data.lon)
+    : null;
+
   markerInfoTitle.innerText = data.title;
   markerInfoDesc.innerText = data.description;
-  markerInfoCoords.innerText = `Lat: ${data.lat.toFixed(5)} | Lon: ${data.lon.toFixed(5)} | Alt: ${Math.round(data.alt)}m`;
+  const distanceText = distance !== null ? ` | Dist: ${formatDistance(distance)} | Bearing: ${getCompassLabel(bearing)}` : '';
+  markerInfoCoords.innerText = `Lat: ${formatCoordinate(data.lat, 6)} | Lon: ${formatCoordinate(data.lon, 6)} | Alt: ${formatAltitude(data.alt)}${distanceText}`;
   markerInfoCard.style.display = 'block';
 }
 
+function addMarkerToScene({ title, description, lat, lon, alt, colorHex, persist = true }) {
+  const markerObj = createInteractiveMarker({
+    title,
+    description,
+    lat,
+    lon,
+    alt,
+    colorHex
+  });
+
+  const relativeY = getMarkerRelativeAltitude(alt);
+  locarInstance.add(markerObj, lon, lat, relativeY);
+
+  const markerRecord = {
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    group: markerObj,
+    title,
+    description,
+    lat,
+    lon,
+    alt,
+    colorHex
+  };
+
+  allCustomMarkers.push(markerRecord);
+  if (persist) persistCustomMarkers();
+  updateMarkerList();
+  return markerRecord;
+}
+
+function updateCustomMarkerHeights() {
+  if (!allCustomMarkers.length || currentAlt === null || currentAlt === undefined || !Number.isFinite(currentAlt)) return;
+
+  allCustomMarkers.forEach((marker) => {
+    if (marker.group) {
+      marker.group.position.y = getMarkerRelativeAltitude(marker.alt);
+    }
+  });
+}
+
+function restoreSavedMarkers() {
+  if (!locarInstance) return;
+
+  try {
+    const raw = localStorage.getItem(markerStorageKey);
+    if (!raw) return;
+    const savedMarkers = JSON.parse(raw);
+    if (!Array.isArray(savedMarkers)) return;
+
+    savedMarkers.forEach((item) => {
+      if (!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) return;
+      addMarkerToScene({
+        title: item.title || 'Saved Marker',
+        description: item.description || 'Saved from a previous session.',
+        lat: Number(item.lat),
+        lon: Number(item.lon),
+        alt: Number(item.alt) || 0,
+        colorHex: item.colorHex || '#00e5ff',
+        persist: false
+      });
+    });
+  } catch (err) {
+    console.warn('Could not restore saved markers:', err);
+  }
+}
+
 // Open modal for adding a marker
-function openMarkerModal(prefillLat = null, prefillLon = null, prefillAlt = null) {
+function openMarkerModal(prefillLat = null, prefillLon = null, prefillAlt = 0) {
   inputTitle.value = '';
   inputDesc.value = '';
   inputLat.value = prefillLat !== null ? prefillLat.toFixed(5) : (currentLat !== null ? currentLat.toFixed(5) : '');
   inputLon.value = prefillLon !== null ? prefillLon.toFixed(5) : (currentLon !== null ? currentLon.toFixed(5) : '');
-  
-  // Prefill with actual measured GPS altitude if available, otherwise round to 0
-  const defaultAlt = prefillAlt !== null ? Math.round(prefillAlt) : (currentAlt !== null ? Math.round(currentAlt) : 0);
+  const defaultAlt = prefillAlt !== null && prefillAlt !== undefined && Number.isFinite(prefillAlt)
+    ? prefillAlt
+    : (currentAlt !== null && currentAlt !== undefined && Number.isFinite(currentAlt) ? currentAlt : 0);
   inputAlt.value = defaultAlt;
   modalOverlay.style.display = 'flex';
 }
 
-// Button Listeners
+// Button Listeners (supporting click and touchstart for instant response)
 function bindTapOrClick(el, handler) {
   el.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -196,10 +407,10 @@ bindTapOrClick(modalSubmitBtn, () => {
   const desc = inputDesc.value.trim();
   const lat = parseFloat(inputLat.value);
   const lon = parseFloat(inputLon.value);
-  const targetAlt = parseFloat(inputAlt.value) || 0;
+  const alt = parseFloat(inputAlt.value) || 0;
   const color = inputColor.value;
 
-  if (isNaN(lat) || isNaN(lon)) {
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
     alert('Please enter valid numerical latitude and longitude.');
     return;
   }
@@ -209,35 +420,18 @@ bindTapOrClick(modalSubmitBtn, () => {
     return;
   }
 
-  // Calculate relative 3D height in camera scene:
-  // If player is at 390m and marker is placed at 400m, relative height is +10m in the air!
-  const playerAlt = currentAlt !== null ? currentAlt : 0;
-  const relativeY = targetAlt - playerAlt;
-
-  const markerObj = createInteractiveMarker({
+  addMarkerToScene({
     title,
     description: desc,
     lat,
     lon,
-    alt: targetAlt,
+    alt,
     colorHex: color
   });
 
-  // Add to locar at calculated relative elevation
-  locarInstance.add(markerObj, lon, lat, relativeY);
-  allCustomMarkers.push({ group: markerObj, lat, lon, targetAlt });
-
   modalOverlay.style.display = 'none';
-  statusText.innerText = `Placed "${title}" at ${lat.toFixed(4)}, ${lon.toFixed(4)} (Alt ${Math.round(targetAlt)}m)`;
+  statusText.innerText = `Placed "${title}" at ${formatCoordinate(lat, 5)}, ${formatCoordinate(lon, 5)} (Alt ${formatAltitude(alt)})`;
 });
-
-// Update custom markers' relative Y position if player altitude changes
-function updateCustomMarkersElevation(playerAlt) {
-  if (playerAlt === null) return;
-  for (const item of allCustomMarkers) {
-    item.group.position.y = item.targetAlt - playerAlt;
-  }
-}
 
 // Update cardinal markers so they constantly follow the player (~20 meters away)
 function updateCardinalPositions(playerLat, playerLon) {
@@ -255,29 +449,29 @@ function updateCardinalPositions(playerLat, playerLon) {
 
   for (const c of cardinals) {
     if (!cardinalMarkers[c.key]) {
+      // First time create
       const marker = createInteractiveMarker({
         title: c.title,
         description: c.desc,
         lat: c.lat,
         lon: c.lon,
-        alt: currentAlt !== null ? currentAlt : 0,
+        alt: 0,
         colorHex: c.color,
         isCardinal: true
       });
       locarInstance.add(marker, c.lon, c.lat, 0);
       cardinalMarkers[c.key] = marker;
     } else {
+      // Reposition in world coords relative to current GPS origin
       try {
         const [x, z] = locarInstance.lonLatToWorldCoords(c.lon, c.lat);
         const marker = cardinalMarkers[c.key];
         marker.position.x = x;
         marker.position.z = z;
-        marker.position.y = 0; // eye/ground level
         marker.userData.lat = c.lat;
         marker.userData.lon = c.lon;
-        marker.userData.alt = currentAlt !== null ? currentAlt : 0;
       } catch (e) {
-        // origin not determined yet
+        // origin not set yet
       }
     }
   }
@@ -340,6 +534,7 @@ startBtn.addEventListener('click', async () => {
     appInstance = app;
     const locar = await app.start();
     locarInstance = locar;
+    restoreSavedMarkers();
 
     // Ensure three.js canvas doesn't block touch/clicks on HUD action buttons
     if (app.renderer && app.renderer.domElement) {
@@ -384,28 +579,21 @@ startBtn.addEventListener('click', async () => {
     // Handle GPS coordinate update
     const handleGpsUpdate = (coords) => {
       if (!coords) return;
-      currentLat = coords.latitude;
-      currentLon = coords.longitude;
-      
-      // Store actual measured altitude if provided by device GPS
-      if (coords.altitude !== null && !isNaN(coords.altitude)) {
-        currentAlt = coords.altitude;
-        elAlt.innerText = `${Math.round(currentAlt)}m`;
-      }
+      currentLat = Number.isFinite(coords.latitude) ? coords.latitude : null;
+      currentLon = Number.isFinite(coords.longitude) ? coords.longitude : null;
+      currentAlt = Number.isFinite(coords.altitude) ? coords.altitude : null;
+      const acc = Number.isFinite(coords.accuracy) ? coords.accuracy : null;
 
-      const acc = coords.accuracy;
+      if (currentLat != null) elLat.innerText = formatCoordinate(currentLat, 6);
+      if (currentLon != null) elLon.innerText = formatCoordinate(currentLon, 6);
+      elAlt.innerText = currentAlt !== null ? formatAltitude(currentAlt) : 'N/A';
+      elAcc.innerText = acc !== null ? `±${Math.round(acc)}m` : 'N/A';
 
-      if (currentLat != null) elLat.innerText = currentLat.toFixed(5);
-      if (currentLon != null) elLon.innerText = currentLon.toFixed(5);
-      if (acc != null) elAcc.innerText = `±${Math.round(acc)}m`;
+      statusText.innerText = acc !== null ? `GPS Active (±${Math.round(acc)}m)` : 'GPS Active';
 
-      statusText.innerText = `GPS Active (±${Math.round(acc || 0)}m)`;
-
-      // Dynamic repositioning of cardinal coordinates
+      updateCustomMarkerHeights();
+      updateMarkerList();
       updateCardinalPositions(currentLat, currentLon);
-
-      // Adjust custom markers if altitude shifted
-      updateCustomMarkersElevation(currentAlt);
     };
 
     // 1. Browser Geolocation watcher
