@@ -83,93 +83,6 @@
       gap: 10px;
     }
 
-    @media (max-width: 640px) {
-      #hud-top {
-        top: 8px;
-        left: 8px;
-        right: 8px;
-        gap: 8px;
-      }
-
-      #compass-container,
-      #telemetry-panel,
-      #marker-library-panel {
-        border-radius: 12px;
-      }
-
-      #telemetry-panel {
-        max-width: 200px;
-        padding: 8px 10px;
-        font-size: 10px;
-      }
-
-      #compass-dial {
-        width: 60px;
-        height: 60px;
-      }
-
-      #compass-needle {
-        height: 36px;
-      }
-
-      #action-bar {
-        bottom: 52px;
-        right: 10px;
-        gap: 8px;
-      }
-
-      .fab-btn {
-        padding: 11px 14px;
-        font-size: 12px;
-      }
-
-      #status-bar {
-        left: 8px;
-        right: 8px;
-        bottom: 8px;
-        font-size: 11px;
-        padding: 7px 10px;
-      }
-
-      #marker-library-panel {
-        bottom: 166px;
-        width: min(220px, calc(100vw - 16px));
-      }
-    }
-
-    @media (max-width: 440px) {
-      #hud-top {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      #compass-container {
-        align-self: center;
-        width: min(160px, 45vw);
-      }
-
-      #telemetry-panel {
-        max-width: none;
-        width: 100%;
-      }
-
-      #marker-library-panel {
-        left: 8px;
-        right: 8px;
-        width: auto;
-        max-width: none;
-        bottom: 164px;
-      }
-
-      .form-row {
-        flex-direction: column;
-      }
-
-      .modal-box {
-        padding: 18px 14px;
-      }
-    }
-
     /* Compass Rose Widget */
     #compass-container {
       display: flex;
@@ -409,6 +322,10 @@
       cursor: pointer;
     }
 
+    #marker-library-toggle {
+      display: none;
+    }
+
     /* Modal dialog for creating a marker - Highest z-index */
     #modal-overlay {
       position: absolute;
@@ -569,6 +486,188 @@
       font-size: 14px;
       cursor: pointer;
     }
+
+    @media (max-width: 640px) {
+      body {
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      #overlay,
+      #modal-overlay {
+        height: 100vh;
+        height: 100dvh;
+      }
+
+      #hud-top {
+        top: max(8px, env(safe-area-inset-top));
+        left: 8px;
+        right: 8px;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      #compass-container {
+        flex: 0 0 72px;
+        min-width: 0;
+        padding: 6px 5px;
+        border-radius: 12px;
+      }
+
+      #compass-dial {
+        width: 46px;
+        height: 46px;
+        margin-bottom: 2px;
+      }
+
+      #compass-needle {
+        height: 30px;
+        width: 3px;
+      }
+
+      .cardinal-label {
+        font-size: 10px;
+      }
+
+      #heading-value {
+        font-size: 11px;
+      }
+
+      #telemetry-panel {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+        padding: 8px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+      }
+
+      .gps-data-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2px 10px;
+      }
+
+      #telemetry-sensors {
+        display: none;
+        margin-top: 6px;
+      }
+
+      #telemetry-panel.expanded #telemetry-sensors {
+        display: block;
+      }
+
+      #telemetry-toggle {
+        display: block;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #00e5ff;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+
+      #action-bar {
+        left: 8px;
+        right: 8px;
+        bottom: calc(52px + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: row;
+        justify-content: stretch;
+        gap: 7px;
+      }
+
+      .fab-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        justify-content: center;
+        gap: 5px;
+        padding: 11px 6px;
+        border-radius: 16px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .fab-icon {
+        font-size: 14px;
+      }
+
+      #marker-library-toggle {
+        display: flex;
+      }
+
+      #status-bar {
+        left: 8px;
+        right: 8px;
+        bottom: calc(6px + env(safe-area-inset-bottom));
+        padding: 7px 9px;
+        font-size: 11px;
+      }
+
+      #marker-library-panel {
+        display: none;
+        left: 8px;
+        right: 8px;
+        bottom: calc(106px + env(safe-area-inset-bottom));
+        width: auto;
+        max-width: none;
+        max-height: min(34dvh, 280px);
+        padding: 10px;
+        border-radius: 14px;
+      }
+
+      #marker-library-panel.open {
+        display: flex;
+      }
+
+      .marker-list-item {
+        min-height: 44px;
+      }
+
+      .modal-box {
+        max-height: calc(100dvh - 32px);
+        overflow-y: auto;
+        padding: 18px 14px;
+      }
+
+      #marker-info-card {
+        width: calc(100% - 32px);
+        max-width: 380px;
+        padding: 16px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      #compass-container {
+        flex-basis: 64px;
+      }
+
+      #telemetry-panel {
+        padding: 7px 8px;
+      }
+
+      .fab-btn {
+        font-size: 10px;
+      }
+    }
+
+    @media (max-height: 520px) and (max-width: 900px) {
+      #hud-top {
+        top: max(6px, env(safe-area-inset-top));
+      }
+
+      #telemetry-sensors {
+        max-height: 30dvh;
+        overflow-y: auto;
+      }
+
+      #marker-library-panel {
+        max-height: 38dvh;
+      }
+    }
   </style>
 </head>
 
@@ -595,21 +694,27 @@
 
     <!-- Sensor Telemetry Info -->
     <div id="telemetry-panel">
-      <div class="panel-section-title">GPS LOCATION</div>
-      <div class="data-row"><span class="data-label">LAT:</span><span id="val-lat" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">LON:</span><span id="val-lon" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">ALT:</span><span id="val-alt" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">ACC:</span><span id="val-acc" class="data-val">--</span></div>
+      <button id="telemetry-toggle" class="panel-section-title" type="button" aria-expanded="false">
+        GPS LOCATION <span aria-hidden="true"> · Sensors +</span>
+      </button>
+      <div class="gps-data-grid">
+        <div class="data-row"><span class="data-label">LAT:</span><span id="val-lat" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">LON:</span><span id="val-lon" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">ALT:</span><span id="val-alt" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">ACC:</span><span id="val-acc" class="data-val">--</span></div>
+      </div>
 
-      <div class="panel-section-title" style="margin-top: 5px;">ACCELEROMETER (m/s²)</div>
-      <div class="data-row"><span class="data-label">X:</span><span id="val-ax" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">Y:</span><span id="val-ay" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">Z:</span><span id="val-az" class="data-val">--</span></div>
+      <div id="telemetry-sensors">
+        <div class="panel-section-title" style="margin-top: 5px;">ACCELEROMETER (m/s²)</div>
+        <div class="data-row"><span class="data-label">X:</span><span id="val-ax" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">Y:</span><span id="val-ay" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">Z:</span><span id="val-az" class="data-val">--</span></div>
 
-      <div class="panel-section-title" style="margin-top: 5px;">ORIENTATION (°)</div>
-      <div class="data-row"><span class="data-label">ALPHA:</span><span id="val-alpha" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">BETA:</span><span id="val-beta" class="data-val">--</span></div>
-      <div class="data-row"><span class="data-label">GAMMA:</span><span id="val-gamma" class="data-val">--</span></div>
+        <div class="panel-section-title" style="margin-top: 5px;">ORIENTATION (°)</div>
+        <div class="data-row"><span class="data-label">ALPHA:</span><span id="val-alpha" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">BETA:</span><span id="val-beta" class="data-val">--</span></div>
+        <div class="data-row"><span class="data-label">GAMMA:</span><span id="val-gamma" class="data-val">--</span></div>
+      </div>
     </div>
   </div>
 
@@ -625,6 +730,9 @@
     </button>
     <button id="custom-coords-btn" class="fab-btn">
       <span class="fab-icon">✍️</span> Enter Coordinates
+    </button>
+    <button id="marker-library-toggle" class="fab-btn" type="button" aria-expanded="false">
+      <span class="fab-icon">📚</span> Saved
     </button>
   </div>
 

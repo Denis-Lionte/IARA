@@ -33,6 +33,9 @@ const modalSubmitBtn = document.getElementById('modal-submit-btn');
 // Action Buttons
 const addMarkerBtn = document.getElementById('add-marker-btn');
 const customCoordsBtn = document.getElementById('custom-coords-btn');
+const markerLibraryToggle = document.getElementById('marker-library-toggle');
+const markerLibraryPanel = document.getElementById('marker-library-panel');
+const telemetryToggle = document.getElementById('telemetry-toggle');
 
 // Info Card Elements
 const markerInfoCard = document.getElementById('marker-info-card');
@@ -63,6 +66,19 @@ let cardinalMarkers = {
 markerInfoClose.addEventListener('click', (e) => {
   e.stopPropagation();
   markerInfoCard.style.display = 'none';
+});
+
+telemetryToggle.addEventListener('click', () => {
+  const expanded = telemetryToggle.getAttribute('aria-expanded') !== 'true';
+  document.getElementById('telemetry-panel').classList.toggle('expanded', expanded);
+  telemetryToggle.setAttribute('aria-expanded', String(expanded));
+  telemetryToggle.innerHTML = `GPS LOCATION <span aria-hidden="true"> · Sensors ${expanded ? '−' : '+'}</span>`;
+});
+
+markerLibraryToggle.addEventListener('click', () => {
+  const expanded = markerLibraryToggle.getAttribute('aria-expanded') !== 'true';
+  markerLibraryPanel.classList.toggle('open', expanded);
+  markerLibraryToggle.setAttribute('aria-expanded', String(expanded));
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -198,6 +214,7 @@ function removeMarkerFromList(markerId) {
 function updateMarkerList() {
   if (!markerList) return;
 
+  markerLibraryToggle.innerHTML = `<span class="fab-icon">📚</span> Saved (${allCustomMarkers.length})`;
   if (!allCustomMarkers.length) {
     markerList.innerHTML = '<div class="marker-list-sub">No saved markers yet.</div>';
     return;
