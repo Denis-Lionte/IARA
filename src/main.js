@@ -129,9 +129,14 @@ function getCompassLabel(angle) {
   return directions[idx];
 }
 
+function createMarkerId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function persistCustomMarkers() {
   const snapshot = allCustomMarkers.map(({ id, title, description, lat, lon, alt, colorHex }) => ({
-    id,
+    id: id || createMarkerId(),
     title,
     description,
     lat,
@@ -352,7 +357,7 @@ function addMarkerToScene({ title, description, lat, lon, alt, colorHex, persist
   locarInstance.add(markerObj, lon, lat, relativeY);
 
   const markerRecord = {
-    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: createMarkerId(),
     group: markerObj,
     title,
     description,
@@ -391,6 +396,7 @@ function restoreSavedMarkers() {
 
     savedMarkers.forEach((item) => {
       if (!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) return;
+      const markerId = item.id || createMarkerId();
       addMarkerToScene({
         title: item.title || 'Saved Marker',
         description: item.description || 'Saved from a previous session.',
@@ -400,6 +406,11 @@ function restoreSavedMarkers() {
         colorHex: item.colorHex || '#00e5ff',
         persist: false
       });
+
+      const restoredMarker = allCustomMarkers[allCustomMarkers.length - 1];
+      if (restoredMarker && markerId) {
+        restoredMarker.id = markerId;
+      }
     });
   } catch (err) {
     console.warn('Could not restore saved markers:', err);
