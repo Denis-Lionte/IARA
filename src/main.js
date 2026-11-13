@@ -65,6 +65,21 @@ markerInfoClose.addEventListener('click', (e) => {
   markerInfoCard.style.display = 'none';
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    persistCustomMarkers();
+    return;
+  }
+
+  if (locarInstance) {
+    restoreSavedMarkers();
+  }
+});
+
+window.addEventListener('pagehide', () => {
+  persistCustomMarkers();
+});
+
 function formatCoordinate(value, digits = 6) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
   return Number(value).toFixed(digits);
@@ -115,7 +130,8 @@ function getCompassLabel(angle) {
 }
 
 function persistCustomMarkers() {
-  const snapshot = allCustomMarkers.map(({ title, description, lat, lon, alt, colorHex }) => ({
+  const snapshot = allCustomMarkers.map(({ id, title, description, lat, lon, alt, colorHex }) => ({
+    id,
     title,
     description,
     lat,
@@ -124,6 +140,29 @@ function persistCustomMarkers() {
     colorHex
   }));
   localStorage.setItem(markerStorageKey, JSON.stringify(snapshot));
+}
+
+function clearCustomMarkersFromScene() {
+  if (!allCustomMarkers.length) return;
+
+  allCustomMarkers.forEach((marker) => {
+    if (marker.group && locarInstance) {
+      try {
+        locarInstance.remove(marker.group);
+      } catch (err) {
+        console.warn('Failed to remove marker while restoring state:', err);
+      }
+    }
+    if (marker.group?.children) {
+      marker.group.children.forEach((child) => {
+        const idx = interactiveMarkers.indexOf(child);
+        if (idx !== -1) interactiveMarkers.splice(idx, 1);
+      });
+    }
+  });
+
+  allCustomMarkers.length = 0;
+  updateMarkerList();
 }
 
 function removeMarkerFromList(markerId) {
@@ -346,7 +385,9 @@ function restoreSavedMarkers() {
     const raw = localStorage.getItem(markerStorageKey);
     if (!raw) return;
     const savedMarkers = JSON.parse(raw);
-    if (!Array.isArray(savedMarkers)) return;
+    if (!Array.isArray(savedMarkers) || !savedMarkers.length) return;
+
+    clearCustomMarkersFromScene();
 
     savedMarkers.forEach((item) => {
       if (!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) return;
